@@ -1,5 +1,7 @@
 # 第10章对抗性样本
 
+[toc]
+
 ### 本章涵盖
 
 - GAN之前的研究领域和交织的历史
@@ -23,7 +25,7 @@ NOTE：在有监督的情况下，思考我们的训练集。我们有一个训�
 
 
 
-#### 10.1. 对抗性样本的上下文
+### 10.1. 对抗性样本的上下文
 
 首先，我们想快速讲解为什么在本书结尾处包含本章：
 
@@ -34,13 +36,20 @@ NOTE：在有监督的情况下，思考我们的训练集。我们有一个训�
 就应用而言，对抗性样本很有趣，原因有以下几个：
 
 - 正如所讨论的，对抗性示例可以用于恶意目的，因此测试关键系统的鲁棒性非常重要。如果攻击者可以轻易地愚弄面部识别系统来访问您的手机怎么办？
-- 它们帮助我们了解机器学习的公平性-这是一个日益重要的主题。我们可以使用对抗性学习的表示形式，这些表示形式对于分类很有用，但不允许攻击者恢复受保护的事实，这可能是确保我们的ML不歧视任何人的最佳方法之一。
+- 它们帮助我们了解机器学习的公平性-这是一个日益重要的主题。我们可以使用对抗性学习的表示形式，这些表示形式对于分类任务很有用,使攻击者不能恢复受保护的数据，这可能是确保我们的机器学习不歧视任何人的最佳方法之一。
 - 同样，我们可以使用对抗性学习来保护有关个人的敏感信息（可能是医疗或财务信息）的隐私。在这种情况下，我们仅关注与无法恢复的个人有关的信息。”
 
-按照当前的研究现状，了解对抗性示例是开始理解对抗性防御的唯一方法，因为大多数论文都首先描述了其防御的攻击类型，然后才尝试解决它们。在撰写本书时，没有针对所有类型攻击的通用防御措施。但是，这是否是研究它们的好理由，取决于您对对抗示例的看法。我们决定不详细介绍防御措施-在本章末尾的高级思想之上-因为超出此范围的所有内容均不包括在内。
+按照当前的研究现状，了解对抗性样本是开始理解对抗性防御的唯一方法，因为大多数论文都首先描述了其防御的攻击类型，然后才尝试解决它们。在撰写本书时，没有针对所有类型攻击的通用防御措施。但是，这是否是研究它们的好理由，取决于您对对抗样本的看法。我们决定不详细介绍防御措施-在本章末尾的高级思想之上-因为超出此范围的所有内容均不包括在内。
+
+### 10.2. 谎言，该死的谎言和分布
+
+
+
+
+
+
 
 [^1]:See “Intriguing Properties of Neural Networks,” by Christian Szegedy et al., 2014, https://arxiv.org/pdf/1312.6199.pdf
-
 [^2]: What constitutes human-level performance in vision-classification tasks is a complicated topic. However, at least in, for example, Dota 2 and Go, AI has beat human experts by a substantial margin.
 [^3]:A receiver operating characteristic (ROC) curve explains the trade-offs between false positives and negatives. We also encountered them in chapter 2. For more details, Wikipedia has an excellent explanation.
 [^4]:See “Adversarial Attacks on Deep Learning Models in Natural Language Processing: A Survey,” by Wei Emma Zhang et al., 2019, http://arxiv.org/abs/1901.06796. See also “Adversarial Examples That Fool Both Computer Vision and Time-Limited Humans,” by Gamaleldin F. Elsayed et al., 2018, http://arxiv.org/abs/1802.08195.
