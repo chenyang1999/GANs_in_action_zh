@@ -21,7 +21,7 @@
 
 当我们训练了诸如Inception V3和VGG-19之类的网络时，我们发现了一种使图像分类器在训练数据的细流形(thin manifold)上工作的惊人方法。但是，当人们试图戳破这些算法的分类能力时，他们发现了一个宇宙级大坑-当前的机器学习算法很容易被甚至很小的扭曲所愚弄。迄今为止，几乎所有成功的主要机器学习算法都在一定程度上遭受了该缺陷的影响，并且确实有人推测这就是为什么机器学习起作用的原因。
 
-NOTE：在有监督的情况下，思考我们的训练集。我们有一个训练流形-描述了样本所在高维度的分布。例如，我们的300×300像素图像存在与在270,000维空间（300×300×3color）中。这使得训练非常复杂。
+> NOTE：在有监督的情况下，思考我们的训练集。我们有一个训练流形-描述了样本所在高维度的分布。例如，我们的300×300像素图像存在与在270,000维空间（300×300×3color）中。这使得训练非常复杂。
 
 
 
@@ -42,6 +42,157 @@ NOTE：在有监督的情况下，思考我们的训练集。我们有一个训�
 按照当前的研究现状，了解对抗性样本是开始理解对抗性防御的唯一方法，因为大多数论文都首先描述了其防御的攻击类型，然后才尝试解决它们。在撰写本书时，没有针对所有类型攻击的通用防御措施。但是，这是否是研究它们的好理由，取决于您对对抗样本的看法。我们决定不详细介绍防御措施-在本章末尾的高级思想之上-因为超出此范围的所有内容均不包括在内。
 
 ### 10.2. 谎言，该死的谎言和分布
+
+要真正理解对抗性示例，我们必须回到CV分类任务的领域来了解该任务的难度。回想一下，从原始像素到最终够对图像集进行分类具有的挑战性。
+
+为了拥有一个真正可泛化的算法，我们必须对数据做出明智的预测，而这些预测要远远超过训练集中所见的任何数据。而且，即便是我们稍微改变拍摄照片的角度，手边的图像和同一类训练集中最近的图像之间的像素级差异也很大。
+
+当我们在RGB空间中拥有100,000个300×300图像样本的训练集时，我们必须以某种方式处理270,000维度的数据。当我们考虑所有可能的图像（不是我们实际观察到的图像，而是可能发生的图像）时，每个维度的像素值都与其他维度无关，because we can always generate a valid picture by rolling a hypothetical 256-sided dice 270,000 times. (这句话我真的不会翻译)。因此，理论上我们在8位颜色空间上有$256^{270,000}$个示例（一个数字，长650,225位）。
+
+我们将需要很多样本来覆盖此空间的1％。当然，这些图像大多数都没有任何意义。通常，我们的训练集比这少很多，因此我们需要我们的算法来训练，使用相对有限的数据来推断甚至还没有看到的区域。这是因为该算法最有可能在训练集中没有看到任何东西。
+
+我们知道算法必须有意义地泛化。他们必须能够有意义地填充他们从未见过任何样本的大部分空间。计算机视觉算法之所以起作用，主要是因为它们可以对大量的丢失概率做出很好的猜测，但是它们的优势也是其最大的弱点。
+
+> Note:通常最少要有100,000个样本，深度学习算法才能真正开始发光。
+
+### 10.3. 使用和滥用训练
+
+在本节中，我们介绍两种关于对抗性样本的思考，一种是基于第一原理，另一种是通过类推。第一种思考对抗性样本的方法是从训练机器学习分类的方法开始。请记住，这些是具有数千万参数的网络。在整个培训过程中，我们会更新其中的一些内容，以使类别与训练集中提供的标签相匹配。我们只需要找到正确的参数更新，这就是随机梯度下降（SGD）允许我们执行的操作。
+现在回想一下简单的分类器时代，然后您对GAN有了更多了解。这里我们有某种可学习的分类函数$f_\theta(x)$（例如，深度神经网络或DNN），其由$\theta$（DNN的参数）进行参数化，并以$x$（例如，图像）作为输入，然后对它分类。在训练时，我们将其$\hat{y}$与真实的标签$y$进行比较，这就是我们得到损失$(L)$的方式。然后，我们更新$f_\theta(x)$的参数，以使损失最小化。公式(equation 10.1)、(equation 10.2)和(equation 10.3)进行了总结。
+
+equation 10.1
+$$
+\hat{y}=f_\theta(x)
+$$
+equation 10.2
+$$
+L=\|y-\hat{y}\|
+$$
+equation 10.3
+$$
+\min _{\theta}\|\mathrm{y}-\hat{y}\| \text { s.t. } \hat{y}=f_{\theta}(x)
+$$
+从本质上讲，我们已将神经网络的输出定义为预测得到的样本（equation 10.1）。损失是真实标签和预测标签（equation 10.2）之间的某种距离的度量.然后将整个问题表述为试图调整DNN的参数使得真实标签和预测标签之间的差异的度量最小化.然后构成样本的预测(equation 10.3).
+
+这一切都很好，但是实际上如何使分类损失最小化呢？我们如何解决公式10.3中所述的优化问题？我们通常使用基于SGD的方法来获取 batches of *x*；然后，我们将损失函数当前参数$(\theta_t)$的导数乘以我们的学习率（$\alpha$），即我们的新参数$(\theta_{t+1})$,参见(equation 10.4)。
+$$
+\theta_{t+1}=\theta_{t}-\alpha * \frac{\partial L}{\partial \theta}
+$$
+
+
+这是您将找到的最快的深度学习入门。但是，既然您已经有了这个上下文，请考虑一下是否可以将此强大工具（SGD）也用于其他目的。例如，当我们加大损失空间而不是减少损失时会发生什么？事实证明，最大化错误要比最小化错误要容易得多，同时也很重要。就像许多重大发现一样，它开始时似乎是一个BUG，后来变成了骇客：如果我们开始更新像素而不是权重，该怎么办？如果我们恶意更新它们，则会出现对抗性样本。
+你们中的一些人可能会对SGD的快速回顾感到困惑，所以让我们来回顾典型的损失空间可能是什么样子?
+
+![](https://cy-1256894686.cos.ap-beijing.myqcloud.com/cy/2020-04-18-162818.jpg)
+
+Figure 10.1. 在这种典型的损失空间中，这就是我们的深度学习算法可以切实获得的损失值的类型。在左侧，您具有相等损失的2D等高线，在右侧，您可以看到损失空间的外观的3D渲染。还记得第6章中的登山吗？
+
+(Source: “Visualizing the Loss Landscape of Neural Nets,” by Tom Goldstein et al., 2018, https://github.com/tomgoldstein/loss-landscape.)
+
+第二个可以用来思考对抗性的有效的思维模型的例子。您可能会将对抗性样本视为条件GAN(CGAN)，就像我们在前两章中遇到的那样。借助对抗性样本，我们将以整个图像为条件，并尝试生成一个域转移或相似的图像，但在欺骗分类器的域中除外。 “生成器”可以是简单的随机梯度上升，仅调整图像即可使其他分类器蒙蔽。
+
+两种方式中的哪一种对您都有意义，现在让我们直接了解对抗性样本及其外观。它们是为了使这些变更后的图像很容易被错误地分类。实现此目标的首批方法之一是快速符号梯度法（FSGM），它与我们之前的描述一样简单。
+
+首先从梯度更新（equation 10.4）开始，看一下符号，然后朝相反的方向走一小步。实际上，经常出现图像看起来（几乎）相同！A picture is worth a thousand words to show you how little noise is needed(俚语),见figure 10.2。
+
+![](https://cy-1256894686.cos.ap-beijing.myqcloud.com/cy/2020-04-18-162829.jpg)
+
+figure10.2:一点噪音会带来很大的不同。中间的图片上有噪点（差异）。当然，正确的图片会被大量放大（大约300倍）并移动，以便可以创建有意义的图像。
+
+现在，我们对该未修改的图像运行ResNet-50预训练分类器，并检查表10.1所示的前三个预测；
+
+Table10.1原始图像预测
+
+| Order  | Class         | Confidence |
+| :----- | :------------ | :--------- |
+| First  | mountain_tent | 0.6873     |
+| Second | promontory    | 0.0736     |
+| Third  | valley        | 0.0717     |
+
+前三名都很明智，mountain_tent排在第一位。Table 10.2显示了对抗性图像的预测。前三名完全错过了mountain_tent，并提出了一些至少与户外活动相匹配的建议，但即使修改后的图像也显然不是suspension_bridge。
+
+Table 10.2对抗图像预测
+
+| Order  | Class             | Confidence |
+| :----- | :---------------- | :--------- |
+| First  | volcano           | 0.5914     |
+| Second | suspension_bridge | 0.1685     |
+| Third  | valley            | 0.0869     |
+
+这就是我们可以扭曲预测的程度，而预算只有大约200个像素值（相当于将一个几乎黑色的像素变成一个几乎白色的像素）分布在整个图像上。
+
+一件令人惊讶的事情是创建整个示例所需的代码很少。在本章中，我们将使用一个名为foolbox的库，该库提供了许多方便的方法来创建对抗性示例。事不宜迟，让我们深入了解它。我们从众所周知的导入开始，再加上foolbox，这是一个专门设计用来简化对抗攻击的库。
+
+`Listing 10.1. Our trusty imports`
+
+```python
+import numpy as np
+from keras.applications.resnet50 import ResNet50
+from foolbox.criteria import Misclassification, ConfidentMisclassification
+from keras.preprocessing import image as img
+from keras.applications.resnet50 import preprocess_input, decode_predictions
+import matplotlib.pyplot as plt
+import foolbox
+import pprint as pp
+Import keras
+%matplotlib inline
+```
+
+
+Next, we define a convenience function to load in more images.
+Listing 10.2. Helper function
+
+```python
+def load_image(img_path: str):
+  image = img.load_img(img_path, target_size=(224, 224))
+  plt.imshow(image)
+  x = img.img_to_array(image)
+  return x
+image = load_image('DSC_0897.jpg')
+```
+
+接下来，我们必须设置Keras来创建我们的模型，并从Keras的 convenience function中下载ResNet-50。
+
+`Listing 10.3. Creating [tables 10.1]and [10.2]`
+
+```python
+keras.backend.set_learning_phase(0) #实例化模型
+kmodel = ResNet50(weights='imagenet')
+preprocessing = (np.array([104, 116, 123]), 1)
+#从Keras模型创建foolbox对象     
+fmodel = foolbox.models.KerasModel(kmodel, 
+                                   bounds=(0, 255),              		
+                                   reprocessing=preprocessing)
+#我们制作图像（1,2,224,224,3），使其适合ResNet-50
+to_classify = np.expand_dims(image, axis=0)                              
+preds = kmodel.predict(to_classify)         #我们称之为预测并打印结果。                            
+print('Predicted:', pp.pprint(decode_predictions(preds, top=20)[0]))
+label = np.argmax(preds)      # 获取编号最高的索引，作为以后使用的标签  
+# ::-1表示反转颜色通道，因为Keras ResNet-50需要BGR而不是RGB。       
+image = image[:, :, ::-1]                                        
+#创建攻击对象，设置较高的错误分类标准
+attack = foolbox.attacks.FGSM(fmodel, threshold=.9,                    
+                              criterion=ConfidentMisclassification(.9))    
+#对源图像施加攻击
+adversarial = attack(image, label)      
+#在对抗性图像上获取新的预测      
+new_preds = kmodel.predict(np.expand_dims(adversarial, axis=0))
+print('Predicted:', pp.pprint(decode_predictions(new_preds, top=20)[0]))
+```
+
+使用这些示例非常简单！现在您可能在想，也许仅仅是ResNet-50受这些示例的影响。好吧，我们有一些坏消息要给您。在我们测试本章的各种代码设置时，ResNet不仅被证明是最难破解的分类器，而且在每个ImageNet类别中DAWNBench都是无可争议的赢家（这是DAWNBench的CV类别中最具挑战性的任务），见figure 10.3
+
+![](https://cy-1256894686.cos.ap-beijing.myqcloud.com/cy/2020-04-18-162800.jpg)
+
+但是对抗性样本的最大问题是它们的普适性。对抗性样本不仅限于深度学习，还可以推广到不同的机器学习技术。如果我们针对一种技术生成一个对抗样本，那么它很有可能甚至可以在我们尝试攻击的另一种模型上运行，如 figure10.4 所示。
+
+![](https://cy-1256894686.cos.ap-beijing.myqcloud.com/cy/2020-04-18-163015.jpg)
+
+Figure 10.4。此处的数字表示为欺骗该行中的分类器而欺骗该列的分类器的对抗性样本所占的百分比。这些方法是深度神经网络（DNN），逻辑回归（LR），支持向量机（SVM），决策树（DT），最近邻居（kNN）和继承学习（Ens）。
+
+(Source: “Transferability in Machine Learning: from Phenomena to Black-Box Attacks Using Adversarial Samples,” by Nicolas Papernot et al., 2016, https://arxiv.org/pdf/1605.07277.pdf.)
+
+### 10.4. 信号与噪音
 
 
 
