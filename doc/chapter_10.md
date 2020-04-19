@@ -2,7 +2,7 @@
 
 [toc]
 
-### 本章涵盖
+## 本章涵盖
 
 - GAN之前的研究领域和交织的历史
 - 计算机视觉中的深度学习方法
@@ -280,25 +280,61 @@ storage_df.to_csv('initialization_vals_for_noise.csv')
 另一方面，您可以将迭代式对抗性攻击视为GAN，并不是为了是生成最现实的样本，而是为了使用生成器生成将使分类器蒙蔽的样本。当然，您必须始终记住存在重要的区别，并且通常在已部署的系统中具有固定的分类器。但这并不妨碍我们在对抗性训练中使用这种思想，在对抗性训练中，某些实现方法包括了基于欺骗它的对抗性样本对分类器进行重复训练。然后，这些技术越来越接近典型的GAN设置。
 举一个例子，让我们看一下已经有一段时间作为可行的防御技术的一种技术。在稳健的歧管防御中，我们采取以下步骤来防御对抗性示例[^9]：
 
-> 1. 我们选取一个真实图片 x (adversarial or regular)并把它投射到隐空间 z
-> 2. 使用生成器 G 生成一个相似的样本 x,通过 G(z) 生成 x*
-> 3. 我们使用分类器 C 得到生成样本的类别 C(x*),并使它偏离正确样本的趋势减小(which generally already tends to misclassify way less than running the classification directly on *x*.算了这个从句我是真的翻译不过来)
+> 1. 我们选取一个真实图片 x (adversarial or regular)
+>     1. 它投射到隐空间 z
+>     2. 使用生成器 G 生成一个相似的样本 x,通过 G(z) 生成 x*
+> 2. 我们使用分类器 C 得到生成样本的类别 C(x*),并使它偏离正确样本的趋势减小(which generally already tends to misclassify way less than running the classification directly on *x*.算了这个从句我是真的翻译不过来)
 
 但是这种辩护仍然存在一些模棱两可的情况，在这种情况下，分类器确实会受到较小的干扰。不过我们还是鼓励您检查他们的论文，因为这些案例对于人类来说也不太清楚，这是模型可靠的标志。为了解决这个问题，我们在流形上进行对抗训练：我们将其中一些对抗情况纳入训练集中，以便分类器学会从实际训练数据中区分出来。
 
 本文证明，使用GAN可以为我们提供分类器，即使经过某些最复杂的方法，分类器也不会在受到轻微扰动后完全崩溃。与大多数防御措施一样，下游分类器的性能确实会下降，因为现在必须对我们的分类器进行训练以隐式处理这些对抗性案件。但是，即使有这种挫折，它也不是普遍的防御。
 
-## Reference
+当然,对抗性训练也有一些有趣的应用。例如，一段时间以来，通过对抗性训练，在半监督学习中取得了最好的成绩[^10]（SOTA）。随后，这受到了GAN（请记住第7章）和其他方法的挑战，但这并不意味着在您阅读这些内容时，对抗性训练将不再是最新的技术。
+
+这里我们希望这为您提供了研究GAN和对抗性样本的另一个理由-部分原因是在关键任务分类任务中，GAN可能是前进的最佳防御方法，或者是因为本书不涉及的其他应用。这是一个假设的对抗实例[^11]。
+
+综上所述，我们提出了对抗性样本的概念，并使与GAN的联系更加具体。这是一种未被充分认识的联系，但可以巩固您对这一具有挑战性的主题的理解。此外，防御对抗性样本的一种防御措施就是GAN本身[^12]！因此，GAN也有潜力来解决这这个最初的差异.
+
+### 10.7. 结论
+
+对抗性样本是一个重要领域，因为即使商用计算机视觉产品也遭受了这一缺点，并且仍然容易被学术研究者愚弄[^13]。除了安全性和机器学习可解释性应用程序之外，公平性和鲁棒性仍然有许多实际用途。
+
+此外，对抗性样本是巩固您自己对深度学习和GAN的理解的绝佳方法。对抗性样本利用训练分类器一般情况下的缺点以及在一些特定情况下愚弄分类器的相对优势。分类器必须对许多图像进行预测，并且由于存在许多自由度，因此可以轻松制作一个特殊的偏移量来使分类器完全正确。结果，我们可以很容易地获得对抗噪声，该噪声完全改变了图片的标签，而不会明显改变图像。
+
+对抗性样本可以在AI的许多领域和许多领域中找到，而不仅仅是深度学习或计算机视觉。但是，正如您在代码中看到的那样，在计算机视觉中创建代码并不困难。存在针对这些示例的防御措施，您已经看到了使用GAN的示例，但对抗性样本的问题远未完全解决。
+
+## 总结
+
+- 滥用问题空间的维度是产生的对抗性样本是机器学习的重要原因，因为它们向我们展示了GAN为何起作用以及为什么某些分类器很容易被破坏。
+- 我们可以轻松地生成带有真实图像和噪声的对抗样本。
+- 微小的有意义的攻击向量就可以作为对抗性样本。
+- 对抗性样本的应用包括网络安全和机器学习公平性，我们可以使用GAN来抵御它们。
+
+
+
+## 参考文献
 
 [^1]:See “Intriguing Properties of Neural Networks,” by Christian Szegedy et al., 2014, https://arxiv.org/pdf/1312.6199.pdf
 [^2]: What constitutes human-level performance in vision-classification tasks is a complicated topic. However, at least in, for example, Dota 2 and Go, AI has beat human experts by a substantial margin.
+
 [^3]:A receiver operating characteristic (ROC) curve explains the trade-offs between false positives and negatives. We also encountered them in chapter 2. For more details, Wikipedia has an excellent explanation.
+
 [^4]:See “Adversarial Attacks on Deep Learning Models in Natural Language Processing: A Survey,” by Wei Emma Zhang et al., 2019, http://arxiv.org/abs/1901.06796. See also “Adversarial Examples That Fool Both Computer Vision and Time-Limited Humans,” by Gamaleldin F. Elsayed et al., 2018, http://arxiv.org/abs/1802.08195.
+
 [^5]:Please remember, this is just a quick summary, and we have to skip over some details, so if you can point them out—great. If not, we suggest picking up a book such as *Deep Learning with Python* by François Chollet (Manning, 2017) to brush up on the specifics.
+
 [^6]:See “Image Classification on ImageNet,” at DAWNBench, https://dawn.cs.stanford.edu/benchmark/#imagenet.
+
 [^7]:See “Motivating the Rules of the Game for Adversarial Example Research,” by Justin Gilmer et al., 2018, http://arxiv.org/abs/1807.06732.
+
 [^8]:ICLR is the *International Conference on Learning Representations*, one of the smaller but excellent machine learning conferences. See Anish Athalye on Twitter in 2018, http://mng.bz/ad77. It should be noted that there were three more defenses unexamined by the author.
+
 [^9]: See “The Robust Manifold Defense: Adversarial Training Using Generative Models,” by Ajil Jalal et al., 2019, https://arxiv.org/pdf/1712.09196.pdf.
 
+[^10]:See “Virtual Adversarial Training: A Regularization Method for Supervised and Semi-Supervised Learning,” by Takeru Miyato et al., 2018, https://arxiv.org/pdf/1704.03976.pdf.
 
+[^11]:This was a hotly debated topic at ICLR 2019. Though most of these conversations were informal, using (pseudo) invertible generative models as a way to classify “out-of-sample”ness of an image seems like a fruitful avenue.
 
+[^12]:See Jalal et al., 2019, https://arxiv.org/pdf/1712.09196.pdf.
+
+[^13]:See “Black-Box Adversarial Attacks with Limited Queries and Information,” by Andrew Ilyas et al., 2018, https://arxiv.org/abs/1804.08598.
